@@ -1,5 +1,4 @@
 import {useState, useCallback} from 'react'
-import {useDropzone} from 'react-dropzone'
 import { formatSize } from '../lib/utils'
 
 interface FileUploaderProps {
@@ -7,36 +6,68 @@ interface FileUploaderProps {
 }
 
 const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
-    const onDrop = useCallback((acceptedFiles: File[]) => {
-        const file = acceptedFiles[0] || null;
+    const [isDragActive, setIsDragActive] = useState(false);
+    const [file, setFile] = useState<File | null>(null);
 
-        onFileSelect?.(file);
+    const handleFile = (selectedFile: File) => {
+        if (selectedFile.type === 'application/pdf') {
+            setFile(selectedFile);
+            onFileSelect?.(selectedFile);
+        } else {
+            alert('Please upload a PDF file');
+        }
+    };
+
+    const onDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragActive(false);
+        const droppedFile = e.dataTransfer.files[0];
+        if (droppedFile) {
+            handleFile(droppedFile);
+        }
     }, [onFileSelect]);
+
+    const onDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragActive(true);
+    }, []);
+
+    const onDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragActive(false);
+    }, []);
+
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            handleFile(selectedFile);
+        }
+    };
 
     const maxFileSize = 20 * 1024 * 1024; // 20MB in bytes
 
-    const {getRootProps, getInputProps, isDragActive, acceptedFiles} = useDropzone({
-        onDrop,
-        multiple: false,
-        accept: { 'application/pdf': ['.pdf']},
-        maxSize: maxFileSize,
-    })
-
-    const file = acceptedFiles[0] || null;
-
-
-
     return (
-        <div className="w-full gradient-border">
-            <div {...getRootProps()}>
-                <input {...getInputProps()} />
+        <div 
+            className={`w-full gradient-border ${isDragActive ? 'border-blue-500 bg-blue-50' : ''}`}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+        >
+            <div className="relative">
+                <input 
+                    type="file" 
+                    accept=".pdf" 
+                    onChange={onFileChange} 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    id="uploader-input"
+                />
 
-                <div className="space-y-4 cursor-pointer">
+                <div className="space-y-4 py-8">
                     {file ? (
                         <div className="uploader-selected-file" onClick={(e) => e.stopPropagation()}>
-                            <img src="/images/pdf.png" alt="pdf" className="size-10" />
-                            <div className="flex items-center space-x-3">
-                                <div>
+                            <div className="flex flex-row items-center gap-4">
+                                <img src="/images/pdf.png" alt="pdf" className="size-10" />
+                                <div className="flex flex-col">
                                     <p className="text-sm font-medium text-gray-700 truncate max-w-xs">
                                         {file.name}
                                     </p>
@@ -45,14 +76,17 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
                                     </p>
                                 </div>
                             </div>
-                            <button className="p-2 cursor-pointer" onClick={(e) => {
-                                onFileSelect?.(null)
+                            <button className="p-2 cursor-pointer relative z-10" onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setFile(null);
+                                onFileSelect?.(null);
                             }}>
-                                <img src="/icons/cross.svg" alt="remove" className="w-4 h-4" />
+                                <img src="/icons/cross.svg" alt="remove" className="w-4 h-4 ml-auto" />
                             </button>
                         </div>
                     ): (
-                        <div>
+                        <div className="text-center pointer-events-none">
                             <div className="mx-auto w-16 h-16 flex items-center justify-center mb-2">
                                 <img src="/icons/info.svg" alt="upload" className="size-20" />
                             </div>

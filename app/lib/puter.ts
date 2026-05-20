@@ -74,7 +74,8 @@ interface PuterStore {
         ) => Promise<AIResponse | undefined>;
         feedback: (
             path: string,
-            message: string
+            message: string,
+            text?: string
         ) => Promise<AIResponse | undefined>;
         img2txt: (
             image: string | File | Blob,
@@ -327,30 +328,42 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         >;
     };
 
-    const feedback = async (path: string, message: string) => {
+    const feedback = async (path: string, message: string, text?: string) => {
         const puter = getPuter();
         if (!puter) {
             setError("Puter.js not available");
             return;
         }
 
+        const content: ChatMessageContent[] = [];
+
+        // Always provide the file for OCR/Context/Vision fallback
+        content.push({
+            type: "file",
+            puter_path: path,
+        });
+
+        // Provide extracted text for speed and clarity if available
+        if (text && text.trim().length > 0) {
+            content.push({
+                type: "text",
+                text: `Extracted Resume Text (use for fast processing):\n${text}`,
+            });
+        }
+
+        // Final Instruction
+        content.push({
+            type: "text",
+            text: `Analysis Task:\n${message}`,
+        });
+
         return puter.ai.chat(
             [
                 {
                     role: "user",
-                    content: [
-                        {
-                            type: "file",
-                            puter_path: path,
-                        },
-                        {
-                            type: "text",
-                            text: message,
-                        },
-                    ],
+                    content: content,
                 },
-            ],
-            { model: "claude-3-7-sonnet" }
+            ]
         ) as Promise<AIResponse | undefined>;
     };
 
